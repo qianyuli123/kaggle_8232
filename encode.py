@@ -26,8 +26,6 @@ vectorizer = TfidfVectorizer()
 tfidf_matrix = vectorizer.fit_transform(question_texts)
 
 
-
-
 # 计算余弦相似度
 cosine_similarities = cosine_similarity(tfidf_matrix)
 

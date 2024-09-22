@@ -3,7 +3,7 @@ from io import StringIO
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# 读取 CSV 数据
+
 data = """
 ,QuestionId,ConstructId,ConstructName,SubjectId,SubjectName,CorrectAnswer,QuestionText,AnswerText,MisconceptionName
 0,0,856,Use the order of operations to carry out calculations involving powers,33,BIDMAS,A,"\[

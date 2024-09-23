@@ -95,7 +95,6 @@ class Encoder:
         返回:
         - 编码后的标签向量。
         """
-        print(row.keys())
         misconception_name = self.misconception_map[row['MisconceptionId']]
         tokenized_text = self.tokenize_and_encode(misconception_name)
         embedded_text = self.embedding(tokenized_text.unsqueeze(0))
@@ -116,36 +115,62 @@ class Encoder:
         similarity = torch.cosine_similarity(feature_vector, label_vector, dim=1)
         loss = -similarity.mean()  # 目标是最小化负相似性，即最大化相似性
         return loss
-
-# 测试用例
-if __name__ == '__main__':
-    # 示例数据
-
-    '''data = {
-        'ConstructName': ['Construct1', 'Construct2'],
-        'SubjectName': ['Subject1', 'Subject2'],
-        'QuestionText': ['What is the capital of France?', 'What is the capital of Germany?'],
-        'AnswerAText': ['Paris', 'Berlin'],
-        'MisconceptionId': [1, 2]
-    }
-    mapping_data = {
-        'MisconceptionId': [1, 2],
-        'MisconceptionName': ['Capital of France', 'Capital of Germany']
-    }
     
-    train_df = pd.DataFrame(data)
-    mapping_df = pd.DataFrame(mapping_data)'''
+    def train(self, epochs=10, learning_rate=0.001):
+        """
+        训练模型。
+        
+        参数:
+        - epochs: 训练轮数。
+        - learning_rate: 学习率。
+        """
+        optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+        criterion = nn.CosineEmbeddingLoss()
 
-    train_df, mapping_df = DataLoader('dataset').get_result_df(), DataLoader('dataset').get_mapping_df()
+        for epoch in range(epochs):
+            total_loss = 0.0
+            for index, row in self.train_df.iterrows():
+                feature_vector = self.encode_features(row)
+                label_vector = self.encode_labels(row)
+                
+                optimizer.zero_grad()
+                loss = self.similarity_loss(feature_vector, label_vector)
+                loss.backward()
+                optimizer.step()
+                
+                total_loss += loss.item()
+            
+            avg_loss = total_loss / len(self.train_df)
+            print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}")
     
-    encoder = Encoder(train_df, mapping_df, device='cuda')
+    def save_model(self, filepath):
+        """
+        保存模型状态字典到指定路径。
+        
+        参数:
+        - filepath: 文件路径。
+        """
+        torch.save({
+            'embedding_state_dict': self.embedding.state_dict(),
+            'feature_rnn_state_dict': self.feature_rnn.state_dict(),
+            'label_rnn_state_dict': self.label_rnn.state_dict(),
+            'vocab': self.vocab,
+            'misconception_map': self.misconception_map
+        }, filepath)
     
-    # 测试
-    row1 = train_df.iloc[0]
-    label_vector = encoder.encode_labels(row1)
+    def load_model(self, filepath):
+        """
+        加载模型状态字典。
+        
+        参数:
+        - filepath: 文件路径。
+        """
+        checkpoint = torch.load(filepath, map_location=self.device)
+        self.embedding.load_state_dict(checkpoint['embedding_state_dict'])
+        self.feature_rnn.load_state_dict(checkpoint['feature_rnn_state_dict'])
+        self.label_rnn.load_state_dict(checkpoint['label_rnn_state_dict'])
+        self.vocab = checkpoint['vocab']
+        self.misconception_map = checkpoint['misconception_map']
 
-    for i in range(len(train_df)):
-        row = train_df.iloc[i]
-        feature_vector = encoder.encode_features(row)
-        loss = encoder.similarity_loss(feature_vector, label_vector)
-        print(f"Loss: {loss.item()}")
+    def parameters(self):
+        return list(self.embedding.parameters()) + list(self.feature_rnn.parameters()) + list(self.label_rnn.parameters())
